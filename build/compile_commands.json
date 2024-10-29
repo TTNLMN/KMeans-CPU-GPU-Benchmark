@@ -1,0 +1,14 @@
+[
+{
+  "directory": "/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/build",
+  "command": "/usr/bin/clang++ -DDP -I/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/src -I/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/utils  -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk -o CMakeFiles/kmeans.dir/src/main.cxx.o -c /Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/src/main.cxx",
+  "file": "/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/src/main.cxx",
+  "output": "CMakeFiles/kmeans.dir/src/main.cxx.o"
+},
+{
+  "directory": "/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/build",
+  "command": "/usr/bin/clang++ -DDP -I/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/src -I/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/utils  -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk -o CMakeFiles/preprocess.dir/src/preprocess.cxx.o -c /Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/src/preprocess.cxx",
+  "file": "/Users/ttnlmn/Development/Organizations/Ensimag/3A/GP-GPU/Project/src/preprocess.cxx",
+  "output": "CMakeFiles/preprocess.dir/src/preprocess.cxx.o"
+}
+]
