@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories(
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/utils
+    ${PROJECT_SOURCE_DIR}/Eigen
 )
 
 # Option to use double precision
@@ -49,6 +50,7 @@ if(LINUX)
         message(FATAL_ERROR "OpenMP not found. Please install OpenMP.")
     endif()
 endif()
+
 
 # Add source files for the main application
 set(SOURCES_MAIN

@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 /**
  * * Name:       main.cxx
- * * Purpose:    Driver for K-Means Clustering
+ * * Purpose:    Driver for K-Means Clustering on PCA-Transformed Data
  * * History:    Titouan Le Moan & Max Bedel, 2024
  */
 // -----------------------------------------------------------------------------
@@ -36,8 +36,6 @@ int main(int argc, char* argv[]) {
 
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
-
-    // Define command-line arguments
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 3);
     args::ValueFlag<std::string> executionFlag(parser, "execution", "Execution type: sequential or parallel", {'e', "execution"}, "sequential");
@@ -48,15 +46,15 @@ int main(int argc, char* argv[]) {
         parser.ParseCLI(argc, argv);
     } catch (const args::Help&) {
         std::cout << parser;
-        return 0;
+        return EXIT_SUCCESS;
     } catch (const args::ParseError& e) {
         std::cerr << e.what() << std::endl;
         std::cerr << parser;
-        return 1;
+        return EXIT_FAILURE;
     } catch (const args::ValidationError& e) {
         std::cerr << e.what() << std::endl;
         std::cerr << parser;
-        return 1;
+        return EXIT_FAILURE;
     }
 
     // Retrieve argument values
@@ -64,23 +62,18 @@ int main(int argc, char* argv[]) {
     std::string executionType = args::get(executionFlag);
     int max_iters = args::get(maxItersFlag);
 
-    // Load preprocessed data
+    // Load PCA-transformed data
     std::vector<std::vector<REAL>> data;
     try {
-        io::CSVReader<11> in("../data/preprocessed_data.csv");
-        in.read_header(io::ignore_extra_column, "fixed acidity", "volatile acidity", "citric acid",
-                       "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide",
-                       "density", "pH", "sulphates", "alcohol");
-        REAL fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-             free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol;
-        while (in.read_row(fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-                           free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol)) {
-            data.push_back({fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-                            free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol});
+        io::CSVReader<2> in("../data/preprocessed_data.csv");
+        in.read_header(io::ignore_no_column, "PC1", "PC2");
+        REAL pc1, pc2;
+        while (in.read_row(pc1, pc2)) {
+            data.push_back({pc1, pc2});
         }
     } catch (const std::exception& e) {
         std::cerr << "Error reading preprocessed data: " << e.what() << std::endl;
-        return 1;
+        return EXIT_FAILURE;
     }
 
     // Choose KMeans implementation
@@ -98,7 +91,7 @@ int main(int argc, char* argv[]) {
         kmeans = std::make_unique<KMeansParallel<REAL>>(k, max_iters);
     } else {
         std::cerr << "Invalid execution type: " << executionType << ". Use 'sequential' or 'parallel'." << std::endl;
-        return 1;
+        return EXIT_FAILURE;
     }
 
     // Fit the model
@@ -115,11 +108,11 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<REAL>> centroids = kmeans->getCentroids();
 
     // Write results to CSV
-    std::string outputPath = "../plots/cluster_labels.csv";
+    std::string outputPath = "../plots/labels.csv";
     std::ofstream outFile(outputPath);
     if (!outFile.is_open()) {
         std::cerr << "Unable to open output file: " << outputPath << std::endl;
-        return 1;
+        return EXIT_FAILURE;
     }
 
     // Write header
@@ -158,5 +151,5 @@ int main(int argc, char* argv[]) {
         std::cerr << "Unable to open centroids file: " << centroidsPath << std::endl;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
