@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Eigen/Dense>
+#include <Dense>
 #include <vector>
 
 template <typename T>
@@ -29,7 +29,12 @@ std::vector<std::vector<T>> performPCA(const std::vector<std::vector<T>>& data, 
     }
 
     // Sort in descending order
-    std::sort(eigen_pairs.rbegin(), eigen_pairs.rend());
+    auto compare_pairs = [](const std::pair<T, Eigen::VectorXd>& a,
+                            const std::pair<T, Eigen::VectorXd>& b) {
+        return a.first > b.first;  // Sort by eigenvalue, descending
+    };
+
+    std::sort(eigen_pairs.begin(), eigen_pairs.end(), compare_pairs);
 
     // Select top 'n_components' eigenvectors
     Eigen::MatrixXd projection_matrix(num_features, n_components);

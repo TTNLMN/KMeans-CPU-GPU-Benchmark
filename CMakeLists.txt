@@ -57,16 +57,8 @@ set(SOURCES_MAIN
     src/main.cxx
 )
 
-# Add source files for the preprocess script
-set(SOURCES_PREPROCESS
-    src/preprocess.cxx
-)
-
 # Add executable for the main application
 add_executable(kmeans ${SOURCES_MAIN})
-
-# Add executable for the preprocess script
-add_executable(preprocess ${SOURCES_PREPROCESS})
 
 # Link OpenMP libraries
 if(LINUX)
