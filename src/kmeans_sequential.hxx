@@ -58,7 +58,7 @@ public:
             }
 
             if (converged) {
-                std::cout << "Converged at iteration " << iter + 1 << std::endl;
+                std::cout << "Converged after " << iter + 1 << " iterations." << std::endl;
                 break;
             }
         }
@@ -72,9 +72,11 @@ public:
      */
     std::vector<int> predict(const std::vector<std::vector<T>>& data) override {
         std::vector<int> assignments(data.size());
+
         for (size_t i = 0; i < data.size(); ++i) {
             assignments[i] = this->closestCentroid(data[i]);
         }
+        
         return assignments;
     }
 };

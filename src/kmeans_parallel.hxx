@@ -34,6 +34,7 @@ public:
      */
     void fit(const std::vector<std::vector<T>>& data) override {
         this->initializeCentroids(data);
+        std::vector<std::vector<T>> previous_centroids;
 
         for (int iter = 0; iter < this->max_iters; ++iter) {
             // Step 1: Assign each point to the closest centroid in parallel
@@ -45,7 +46,23 @@ public:
             }
 
             // Step 2: Update centroids based on the assignments in parallel
-            updateCentroidsParallel(data, assignments);
+            previous_centroids = this->centroids;
+            this->updateCentroids(data, assignments);
+
+            bool converged = true;
+            #pragma omp parallel for reduction(&:converged)
+            for (size_t c = 0; c < this->centroids.size(); ++c) {
+                for (size_t d = 0; d < this->centroids[c].size(); ++d) {
+                    if (std::abs(this->centroids[c][d] - previous_centroids[c][d]) > 1e-6) {
+                        converged = false;
+                    }
+                }
+            }
+
+            if (converged) {
+                std::cout << "Converged after " << iter + 1 << " iterations." << std::endl;
+                break;
+            }
         }
     }
 
@@ -68,29 +85,24 @@ public:
 
 private:
     /**
-     * @brief Updates centroids based on current assignments using parallel threads.
+     * @brief Updates the centroids based on current assignments in parallel.
      *
      * @param data The data points.
      * @param assignments The current cluster assignments.
      */
-    /**
-     * @brief Updates centroids based on current assignments using OpenMP.
-     *
-     * @param data The data points.
-     * @param assignments The current cluster assignments.
-     */
-    void updateCentroidsParallel(const std::vector<std::vector<T>>& data, const std::vector<int>& assignments) {
+    void updateCentroids(const std::vector<std::vector<T>>& data, const std::vector<int>& assignments) {
         size_t dim = data[0].size();
         std::vector<std::vector<T>> new_centroids(this->k, std::vector<T>(dim, 0));
         std::vector<int> counts(this->k, 0);
 
-        // Parallel accumulation of centroid sums and counts
+        // Step 1: Sum up all data points in each cluster
         #pragma omp parallel
         {
+            // Thread-local storage to avoid data races
             std::vector<std::vector<T>> local_centroids(this->k, std::vector<T>(dim, 0));
             std::vector<int> local_counts(this->k, 0);
 
-            #pragma omp for nowait schedule(static)
+            #pragma omp for schedule(static)
             for (size_t i = 0; i < data.size(); ++i) {
                 int cluster_id = assignments[i];
                 for (size_t j = 0; j < dim; ++j) {
@@ -99,26 +111,26 @@ private:
                 local_counts[cluster_id]++;
             }
 
-            // Critical section to update global centroids and counts
+            // Step 2: Reduce thread-local results into global centroids
             #pragma omp critical
             {
-                for (int c = 0; c < this->k; ++c) {
+                for (int i = 0; i < this->k; ++i) {
                     for (size_t j = 0; j < dim; ++j) {
-                        new_centroids[c][j] += local_centroids[c][j];
+                        new_centroids[i][j] += local_centroids[i][j];
                     }
-                    counts[c] += local_counts[c];
+                    counts[i] += local_counts[i];
                 }
             }
         }
-
-        // Compute the new centroids
-        for (int c = 0; c < this->k; ++c) {
-            if (counts[c] > 0) {
+        // Step 3: Average to get the new centroids
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < this->k; ++i) {
+            if (counts[i] > 0) {
                 for (size_t j = 0; j < dim; ++j) {
-                    new_centroids[c][j] /= counts[c];
+                    new_centroids[i][j] /= counts[i];
                 }
-                this->centroids[c] = new_centroids[c];
             }
+            this->centroids[i] = new_centroids[i];
         }
     }
 };

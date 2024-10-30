@@ -35,7 +35,7 @@ typedef float REAL;
 int main(int argc, char* argv[]) {
     std::cout << "[K-Means Clustering Application]" << std::endl;
     
-    std::string inputPath = "../data/raw/winequality-red.csv";
+    std::string inputPath = "../data/raw/test_pad.csv";
     std::string outputPath = "../data/processed/labels.csv";
 
     std::cout << "Reading data from " << inputPath << std::endl;
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 3);
+    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 120);
     args::ValueFlag<std::string> executionFlag(parser, "execution", "Execution type: sequential or parallel", {'e', "execution"}, "sequential");
     args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
 
@@ -72,29 +72,18 @@ int main(int argc, char* argv[]) {
     // Load data
     std::vector<std::vector<REAL>> data;
     try {
-        io::CSVReader<11> in(inputPath);
-        in.read_header(io::ignore_extra_column, "fixed acidity", "volatile acidity", "citric acid",
-                       "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide",
-                       "density", "pH", "sulphates", "alcohol");
-        REAL fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-             free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol;
-        while (in.read_row(fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-                           free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol)) {
-            data.push_back({fixed_acidity, volatile_acidity, citric_acid, residual_sugar, chlorides,
-                            free_sulfur_dioxide, total_sulfur_dioxide, density, pH, sulphates, alcohol});
+        io::CSVReader<3> in(inputPath);
+        in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
+        REAL x, y;
+        int grey;
+        while (in.read_row(x, y, grey)) {
+            // Since we want to cluster based on the greyscale value, we only keep the points that are grey
+            if (grey == 1) data.push_back({x, y});
         }
     } catch (const std::exception& e) {
         std::cerr << "Error reading data: " << e.what() << std::endl;
         return 1;
     }
-
-    std::vector<std::vector<REAL>> transformed_data = performPCA(data, 2);
-
-    // Choose KMeans implementation
-    std::cout << "Executing K-Means with " << k << " clusters using " << executionType << " execution." << std::endl;
-
-    // Start timer
-    auto start = std::chrono::high_resolution_clock::now();
 
     // Define pointers for KMeans
     std::unique_ptr<KMeans<REAL>> kmeans;
@@ -108,8 +97,14 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Choose KMeans implementation
+    std::cout << "Executing K-Means with " << k << " clusters using " << executionType << " execution." << std::endl;
+
+    // Start timer
+    auto start = std::chrono::high_resolution_clock::now();
+
     // Fit the model
-    kmeans->fit(transformed_data);
+    kmeans->fit(data);
 
     // End timer
     auto end = std::chrono::high_resolution_clock::now();
@@ -118,7 +113,7 @@ int main(int argc, char* argv[]) {
     std::cout << "K-Means clustering completed in " << elapsed.count() << " ms." << std::endl;
 
     // Retrieve results
-    std::vector<int> assignments = kmeans->predict(transformed_data);
+    std::vector<int> assignments = kmeans->predict(data);
     std::vector<std::vector<REAL>> centroids = kmeans->getCentroids();
 
     // Write results to CSV
