@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------------
+/**
+ * * Name:       kmeans.hxx
+ * * Purpose:    K-Means Clustering Implementation
+ * * History:    Titouan Le Moan & Max Bedel, 2024
+ */
+// -----------------------------------------------------------------------------
+
 #pragma once
 
 #include <vector>
@@ -8,7 +16,7 @@
 #include <memory>
 #include <iostream>
 
-#include "distance.hxx"
+#include "../utils/kmeans.hxx"
 
 template <typename T>
 class KMeans {
@@ -48,21 +56,14 @@ protected:
      *
      * @param data The data to initialize from.
      */
-    void initializeCentroidsNaive(const std::vector<std::vector<T>>& data) {
+    void initializeRandomCentroids(const std::vector<std::vector<T>>& data) {
         if (data.size() < static_cast<size_t>(k)) {
             throw std::invalid_argument("Number of clusters (k) cannot exceed number of data points.");
         }
 
-        auto start = std::chrono::high_resolution_clock::now();
-
         centroids.clear();
         std::sample(data.begin(), data.end(), std::back_inserter(centroids),
                    k, std::mt19937{std::random_device{}()});
-
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = end - start;
-        
-        std::cout << "Centroid initialization completed in " << elapsed.count() << " ms." << std::endl;
     }
 
     /**

@@ -20,7 +20,6 @@
 #include "csv.h"
 
 // Include KMeans implementations
-#include "pca.hxx"
 #include "kmeans.hxx"
 #include "kmeans_parallel.hxx"
 #include "kmeans_sequential.hxx"
@@ -32,14 +31,55 @@ typedef float REAL;
 #endif
 #define check_out 1
 
+#ifdef __linux__
+#include <sstream>
+#elif __APPLE__
+#include <mach/mach.h>
+#endif
+
+// Function to get memory usage in KB
+size_t getMemoryUsage() {
+#ifdef __linux__
+    std::ifstream stat_stream("/proc/self/status", std::ios_base::in);
+    std::string line;
+    size_t vmRSS = 0;
+    while (std::getline(stat_stream, line)) {
+        if (line.substr(0, 6) == "VmRSS:") {
+            std::istringstream iss(line);
+            std::string key;
+            iss >> key >> vmRSS;
+            break;
+        }
+    }
+    return vmRSS;
+#elif __APPLE__
+    mach_task_basic_info info;
+    mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+    kern_return_t kr = task_info(mach_task_self(),
+                                 MACH_TASK_BASIC_INFO,
+                                 reinterpret_cast<task_info_t>(&info),
+                                 &infoCount);
+    if (kr != KERN_SUCCESS) {
+        std::cerr << "Failed to get memory info: " << kr << std::endl;
+        return 0; // Could not retrieve memory info
+    }
+    return static_cast<size_t>(info.resident_size / 1024); // Convert bytes to KB
+#else
+    return 0; // Unsupported platform
+#endif
+}
+
+/*----------------------------------------------------------------------------*/
+/* Toplevel function.                                                         */
+/*----------------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
-    std::cout << "[K-Means Clustering Application]" << std::endl;
+    std::cout << "[K-Means Clustering Using CPU]" << std::endl;
     
     std::string inputPath = "../data/raw/test_pad.csv";
     std::string outputPath = "../data/processed/labels.csv";
 
-    std::cout << "Reading data from " << inputPath << std::endl;
-    std::cout << "Writing labels to " << outputPath << std::endl;
+    std::cout << " Reading data from " << inputPath << std::endl;
+    std::cout << " Writing labels to " << outputPath << std::endl;
 
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
@@ -85,7 +125,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Define pointers for KMeans
+    // Define KMeans implementation
     std::unique_ptr<KMeans<REAL>> kmeans;
 
     if (executionType == "sequential") {
@@ -97,39 +137,28 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Choose KMeans implementation
-    std::cout << "Executing K-Means with " << k << " clusters using " << executionType << " execution." << std::endl;
+    size_t memory_before = getMemoryUsage();
 
-    // Start timer
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::system_clock::now();
 
-    // Fit the model
+    std::cout << " == Executing K-Means with " << k << " clusters using " << executionType << " execution." << std::endl;
     kmeans->fit(data);
 
-    // End timer
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
+    auto elapse = std::chrono::system_clock::now() - start;
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(elapse);
 
-    std::cout << "K-Means clustering completed in " << elapsed.count() << " ms." << std::endl;
+    size_t memory_after = getMemoryUsage();
 
-    // Retrieve results
-    std::vector<int> assignments = kmeans->predict(data);
-    std::vector<std::vector<REAL>> centroids = kmeans->getCentroids();
+    /* Performance computation, results and performance printing ------------ */
+    std::cout << " == Performances " << std::endl;
+    std::cout << "\t Processing time: " << duration.count() << " (ms)" << std::endl;
+    std::cout << "\t Memory Used: " << (memory_after - memory_before) << " KB" << std::endl;
 
-    // Write results to CSV
-    std::ofstream outFile(outputPath);
-    if (!outFile.is_open()) {
-        std::cerr << "Unable to open output file: " << outputPath << std::endl;
-        return EXIT_FAILURE;
+    if (check_out) {
+        std::vector<int> assignments = kmeans->predict(data);
+        std::vector<std::vector<REAL>> centroids = kmeans->getCentroids();
+        plotResults(outputPath, assignments, centroids);
     }
-
-    outFile << "PointID,ClusterID\n";
-
-    for (size_t i = 0; i < assignments.size(); ++i) {
-        outFile << i << "," << assignments[i] << "\n";
-    }
-
-    outFile.close();
     
     return EXIT_SUCCESS;
 }

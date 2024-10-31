@@ -1,8 +1,43 @@
 #pragma once
 
+#include <vector>
+#include <cmath>
+#include <stdexcept>
 #include <Dense>
 #include <vector>
 
+/**
+ * @brief Computes the Euclidean distance between two points.
+ *
+ * @tparam T The data type of the points (e.g., double, float).
+ * @param a The first point.
+ * @param b The second point.
+ * @return T The Euclidean distance.
+ *
+ * @throws std::invalid_argument If the points have different dimensions.
+ */
+template <typename T>
+T euclideanDistance(const std::vector<T>& a, const std::vector<T>& b) {
+    if (a.size() != b.size()) {
+        throw std::invalid_argument("Points must have the same dimensions.");
+    }
+    T sum = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        T diff = a[i] - b[i];
+        sum += diff * diff;
+    }
+    return std::sqrt(sum);
+}
+
+/**
+ * @brief Performs the PCA (Principal Component Analysis) on the given data.
+ * 
+ * @tparam T The data type of the points (e.g., double, float).
+ * @param data The input data.
+ * @param n_components The number of principal components to keep.
+ * 
+ * @return std::vector<std::vector<T>> The transformed data.
+ */
 template <typename T>
 std::vector<std::vector<T>> performPCA(const std::vector<std::vector<T>>& data, int n_components) {
     size_t num_samples = data.size();
@@ -51,4 +86,29 @@ std::vector<std::vector<T>> performPCA(const std::vector<std::vector<T>>& data, 
             result[i][j] = transformed_data(i, j);
 
     return result;
+}
+
+/**
+ * @brief Plots the results of the K-Means clustering.
+ * 
+ * @tparam T The data type of the points (e.g., double, float).
+ * @param assignments The cluster assignments.
+ * @param centroids The cluster centroids.
+ * 
+ * @throws std::runtime_error If the output file cannot be opened.
+ */
+template <typename T>
+void plotResults(std::string outputPath, std::vector<int> assignments, std::vector<std::vector<T>> centroids) {
+    std::ofstream outFile(outputPath);
+    if (!outFile.is_open()) {
+       throw std::runtime_error("Unable to open output file: " + outputPath);
+    }
+
+    outFile << "PointID,ClusterID\n";
+
+    for (size_t i = 0; i < assignments.size(); ++i) {
+        outFile << i << "," << assignments[i] << "\n";
+    }
+
+    outFile.close();
 }

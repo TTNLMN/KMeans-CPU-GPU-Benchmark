@@ -33,7 +33,7 @@ public:
      * @param data The data to cluster.
      */
     void fit(const std::vector<std::vector<T>>& data) override {
-        this->initializeCentroids(data);
+        this->initializeRandomCentroids(data);
         std::vector<std::vector<T>> previous_centroids;
 
         for (int iter = 0; iter < this->max_iters; ++iter) {
@@ -60,7 +60,7 @@ public:
             }
 
             if (converged) {
-                std::cout << "Converged after " << iter + 1 << " iterations." << std::endl;
+                std::cout << "\t Converged after " << iter + 1 << " iterations." << std::endl;
                 break;
             }
         }
