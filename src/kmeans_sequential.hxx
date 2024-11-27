@@ -33,6 +33,7 @@ public:
      */
     void fit(const std::vector<std::vector<T>>& data) override {
         this->initializeRandomCentroids(data);
+
         std::vector<std::vector<T>> previous_centroids;
 
         for (int iter = 0; iter < this->max_iters; ++iter) {

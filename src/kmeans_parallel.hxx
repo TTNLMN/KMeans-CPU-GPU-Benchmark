@@ -34,6 +34,7 @@ public:
      */
     void fit(const std::vector<std::vector<T>>& data) override {
         this->initializeRandomCentroids(data);
+
         std::vector<std::vector<T>> previous_centroids;
 
         for (int iter = 0; iter < this->max_iters; ++iter) {
@@ -95,42 +96,24 @@ private:
         std::vector<std::vector<T>> new_centroids(this->k, std::vector<T>(dim, 0));
         std::vector<int> counts(this->k, 0);
 
-        // Step 1: Sum up all data points in each cluster
-        #pragma omp parallel
-        {
-            // Thread-local storage to avoid data races
-            std::vector<std::vector<T>> local_centroids(this->k, std::vector<T>(dim, 0));
-            std::vector<int> local_counts(this->k, 0);
-
-            #pragma omp for schedule(static)
-            for (size_t i = 0; i < data.size(); ++i) {
-                int cluster_id = assignments[i];
-                for (size_t j = 0; j < dim; ++j) {
-                    local_centroids[cluster_id][j] += data[i][j];
-                }
-                local_counts[cluster_id]++;
+        #pragma omp parallel for reduction(+:new_centroids[:this->k][:dim], counts[:this->k])
+        for (size_t i = 0; i < data.size(); ++i) {
+            int cluster_id = assignments[i];
+            for (size_t j = 0; j < dim; ++j) {
+                new_centroids[cluster_id][j] += data[i][j];
             }
-
-            // Step 2: Reduce thread-local results into global centroids
-            #pragma omp critical
-            {
-                for (int i = 0; i < this->k; ++i) {
-                    for (size_t j = 0; j < dim; ++j) {
-                        new_centroids[i][j] += local_centroids[i][j];
-                    }
-                    counts[i] += local_counts[i];
-                }
-            }
+            counts[cluster_id]++;
         }
-        // Step 3: Average to get the new centroids
-        #pragma omp parallel for schedule(static)
+
+        // Update centroids by averaging
+        #pragma omp parallel for
         for (int i = 0; i < this->k; ++i) {
             if (counts[i] > 0) {
                 for (size_t j = 0; j < dim; ++j) {
                     new_centroids[i][j] /= counts[i];
                 }
+                this->centroids[i] = new_centroids[i];
             }
-            this->centroids[i] = new_centroids[i];
         }
     }
 };

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <vector>
+#include <chrono>
 #include <random>
 #include <algorithm>
 #include <cmath>
@@ -62,60 +63,10 @@ protected:
         }
 
         centroids.clear();
+
+        std::mt19937 gen(42);
         std::sample(data.begin(), data.end(), std::back_inserter(centroids),
-                   k, std::mt19937{std::random_device{}()});
-    }
-
-    /**
-     * @brief Initializes centroids using the K-Means++ algorithm.
-     *
-     * @param data The data to initialize from.
-     */
-    void initializeCentroids(const std::vector<std::vector<T>>& data) {
-        if (data.size() < static_cast<size_t>(k)) {
-            throw std::invalid_argument("Number of clusters (k) cannot exceed number of data points.");
-        }
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        centroids.clear();
-        std::mt19937 gen(std::random_device{}());
-
-        // Step 1: Randomly select the first centroid
-        std::uniform_int_distribution<> dis(0, data.size() - 1);
-        centroids.push_back(data[dis(gen)]);
-
-        // Step 2: Select the remaining centroids
-        for (int i = 1; i < k; ++i) {
-            std::vector<double> distances(data.size(), std::numeric_limits<double>::max());
-
-            // Calculate the minimum distance of each point to the nearest centroid
-            for (size_t j = 0; j < data.size(); ++j) {
-                for (const auto& centroid : centroids) {
-                    double dist = euclideanDistance(data[j], centroid);
-                    if (dist < distances[j]) {
-                        distances[j] = dist;
-                    }
-                }
-            }
-
-            // Step 3: Compute probabilities proportional to the squared distances
-            double sum = std::accumulate(distances.begin(), distances.end(), 0.0);
-            std::vector<double> probabilities(data.size());
-
-            for (size_t j = 0; j < distances.size(); ++j) {
-                probabilities[j] = distances[j] / sum;
-            }
-
-            // Step 4: Choose the next centroid based on the probability distribution
-            std::discrete_distribution<> dist(probabilities.begin(), probabilities.end());
-            centroids.push_back(data[dist(gen)]);
-        }
-
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = end - start;
-
-        std::cout << "Centroid initialization completed in " << elapsed.count() << " ms." << std::endl;
+                    k, gen);
     }
 
     /**
