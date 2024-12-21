@@ -54,7 +54,7 @@ endif()
 
 # Add source files for the main application
 set(SOURCES_MAIN
-    src/main.cxx
+    src/cpu/main.cxx
 )
 
 # Add executable for the main application

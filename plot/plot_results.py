@@ -15,7 +15,7 @@ data = pd.concat([grey_data, data['ClusterID']], axis=1)
 plt.figure(figsize=(10, 7))
 for cluster in data['ClusterID'].unique():
     cluster_data = data[data['ClusterID'] == cluster]
-    plt.scatter(cluster_data['X'], cluster_data['Y'], label=f'Cluster {cluster}', s=20)
+    plt.scatter(cluster_data['X'], cluster_data['Y'], label=f'Cluster {cluster}', s=5)
 
 plt.title('Test Pad Clusters on PCB Image')
 plt.xlabel('X')
