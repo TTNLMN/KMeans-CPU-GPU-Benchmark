@@ -15,14 +15,14 @@
 
 #include <cuda.h>
 
-// Include command-line argument parser
 #include "args.hxx"
-
-// Include the csv parser
 #include "csv.h"
 
-// Include the K-Means kernel
-#include "kmeans_kernel.cuh"
+#include "../utils/kmeans.hxx"
+
+#include "kmeans.cuh"
+
+#define check_out 1
 
 #define REAL float
 #define BLOCK_SIZE 32
@@ -31,20 +31,14 @@
 /* Toplevel driver                                                            */
 /*----------------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
-   std::cout << "[K-Means Clustering Using GPU]" << std::endl;
+    std::cout << "[K-Means Clustering Using GPU]" << std::endl;
     
-    std::string inputPath = "../data/raw/test_pad.csv";
-    std::string outputPath = "../data/processed/labels.csv";
-
-    std::cout << " Reading data from " << inputPath << std::endl;
-    std::cout << " Writing labels to " << outputPath << std::endl;
-
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 120);
-    args::ValueFlag<std::string> executionFlag(parser, "execution", "Execution type: sequential or parallel", {'e', "execution"}, "sequential");
     args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
+    args::ValueFlag<std::string> dataFolderFlag(parser, "folder", "The folder where to take the data", {'f', "folder"}, "pad");
 
     // Parse command-line arguments
     try {
@@ -64,8 +58,15 @@ int main(int argc, char* argv[]) {
 
     // Retrieve argument values
     int k = args::get(clustersFlag);
-    std::string executionType = args::get(executionFlag);
     int max_iters = args::get(maxItersFlag);
+    std::string folder = args::get(dataFolderFlag);
+
+    std::string inputPath = "../data/" + folder + "/data.csv";
+    std::string outputPath = "../data/" + folder + "/labels.csv";
+
+    std::cout << " Reading data from " << inputPath << std::endl;
+    std::cout << " Writing labels to " << outputPath << std::endl;
+
     const int D = 2;
 
     // Load data
@@ -78,8 +79,9 @@ int main(int argc, char* argv[]) {
         while (in.read_row(x, y, grey)) {
             // Since we want to cluster based on the greyscale value, we only keep the points that are grey
             if (grey == 1) {
-                REAL coords[] = { x, y };
-                data.emplace_back(coords);
+                REAL coords[D] = { x, y };
+                Point<REAL, D> p(coords);
+                data.emplace_back(p);
             }
         }
     } catch (const std::exception& e) {
@@ -87,7 +89,6 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    Point<REAL, D>* data_array = data.data();
     size_t M = data.size();
 
     // Setup CUDA environnement 
@@ -124,7 +125,7 @@ int main(int argc, char* argv[]) {
     cudaEventRecord(start, NULL);
 
     KMeans<REAL, D> kmeans(k, max_iters);
-    kmeans.fit(data_array, M);
+    kmeans.fit(data.data(), M);
     
     // stop and destroy timer
     cudaEventCreate(&stop);
@@ -135,6 +136,11 @@ int main(int argc, char* argv[]) {
     /* Performance computation, results and performance printing ------------ */
     std::cout << " == Performances " << std::endl;
     std::cout << "\t Processing time: " << msecTotal << " (ms)" << std::endl;
+
+    if (check_out) {
+        int* assignments = kmeans.predict(data.data(), M);
+        plotResults(outputPath, assignments, M);
+    }
 
     return EXIT_SUCCESS;
 }

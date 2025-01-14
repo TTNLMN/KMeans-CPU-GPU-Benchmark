@@ -16,8 +16,8 @@
  *
  * @tparam T The data type of the data points (e.g., double, float).
  */
-template <typename T>
-class KMeansParallel : public KMeans<T> {
+template <typename T, int D>
+class KMeansParallel : public KMeans<T, D> {
 public:
     /**
      * @brief Constructor to initialize the number of clusters and maximum iterations.
@@ -26,7 +26,7 @@ public:
      * @param max_iters Maximum number of iterations.
      * @param D Dimensionality of each data point.
      */
-    KMeansParallel(int k, int max_iters, int D) : KMeans<T>(k, max_iters, D) {}
+    KMeansParallel(int k, int max_iters) : KMeans<T, D>(k, max_iters) {}
 
     /**
      * @brief Fits the K-Means model to the data in parallel.
@@ -34,10 +34,10 @@ public:
      * @param data The data to cluster.
      * @param M Number of data points.
      */
-    void fit(Point<T>* data, size_t M) override {
+    void fit(Point<T, D>* data, size_t M) override {
         this->initializeCentroids(data, M);
         
-        Point<T>* previous_centroids = new Point<T>[this->k];
+        Point<T, D>* previous_centroids = new Point<T, D>[this->k];
         for (int c = 0; c < this->k; ++c) {
             previous_centroids[c] = this->centroids[c];
         }
@@ -80,7 +80,7 @@ public:
      *
      * @return int* The cluster assignments.
      */
-    int* predict(Point<T>* data, size_t M) override {
+    int* predict(Point<T, D>* data, size_t M) override {
         int* assignments = new int[M];
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < M; ++i) {
@@ -96,7 +96,7 @@ protected:
      * @param data The data to cluster.
      * @param M Number of data points.
      */
-    void assignClusters(Point<T>* data, size_t M) {
+    void assignClusters(Point<T, D>* data, size_t M) {
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < M; ++i) {
             data[i].cluster = this->closestCentroid(data[i]);
@@ -109,9 +109,8 @@ protected:
      * @param data The data to cluster.
      * @param M Number of data points.
      */
-    void updateCentroids(Point<T>* data, size_t M) {
+    void updateCentroids(Point<T, D>* data, size_t M) {
         int k = this->k;
-        int D = this->D;
 
         // Reset centroids
         for (int c = 0; c < k; ++c) {

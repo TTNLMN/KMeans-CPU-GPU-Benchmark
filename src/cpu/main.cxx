@@ -13,18 +13,13 @@
 #include <string>
 #include <stdexcept>
 
-// Include command-line argument parser
 #include "args.hxx"
-
-// Include the csv parser
 #include "csv.h"
 
-// Include KMeans implementations
 #include "kmeans.hxx"
 #include "kmeans_parallel.hxx"
 #include "kmeans_sequential.hxx"
 
-// Include KMeans utils
 #include "../utils/kmeans.hxx"
 
 #ifdef DP
@@ -44,7 +39,7 @@ int main(int argc, char* argv[]) {
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 5);
+    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 120);
     args::ValueFlag<std::string> executionFlag(parser, "execution", "Execution type: sequential or parallel", {'e', "execution"}, "sequential");
     args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
     args::ValueFlag<std::string> dataFolderFlag(parser, "folder", "The folder where to take the data", {'f', "folder"}, "pad");
@@ -77,22 +72,21 @@ int main(int argc, char* argv[]) {
     std::cout << " Reading data from " << inputPath << std::endl;
     std::cout << " Writing labels to " << outputPath << std::endl;
 
-    int D;
+    // For synthetic data, use 3 dimensions
+    const int D = 2;
 
     // Load data
-    std::vector<Point<REAL>> data;
+    std::vector<Point<REAL, D>> data;
     try {
         if (folder.compare("synthetic") == 0) {
-            D = 3;
             io::CSVReader<3> in(inputPath);
             in.read_header(io::ignore_extra_column, "Feature1", "Feature2", "Feature3");
             REAL x, y, z;
             while (in.read_row(x, y, z)) {
-                REAL coords[] = { x, y, z };
+                REAL coords[] = { x, y };
                 data.emplace_back(coords, D);
             }
         } else if (folder.compare("pad") == 0) {
-            D = 2;
             io::CSVReader<3> in(inputPath);
             in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
             REAL x, y;
@@ -116,12 +110,12 @@ int main(int argc, char* argv[]) {
     size_t M = data.size();
 
     // Define KMeans implementation
-    std::unique_ptr<KMeans<REAL>> kmeans;
+    std::unique_ptr<KMeans<REAL, D>> kmeans;
 
     if (executionType == "sequential") {
-        kmeans = std::make_unique<KMeansSequential<REAL>>(k, max_iters, D);
+        kmeans = std::make_unique<KMeansSequential<REAL, D>>(k, max_iters);
     } else if (executionType == "parallel") {
-        kmeans = std::make_unique<KMeansParallel<REAL>>(k, max_iters, D);
+        kmeans = std::make_unique<KMeansParallel<REAL, D>>(k, max_iters);
     } else {
         std::cerr << "Invalid execution type: " << executionType << ". Use 'sequential' or 'parallel'." << std::endl;
         return EXIT_FAILURE;

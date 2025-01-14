@@ -3,7 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <stdexcept>
-#include <Dense>
+// #include <Dense>
 #include <vector>
 
 /**
@@ -15,6 +15,7 @@
  * 
  * @return std::vector<std::vector<T>> The transformed data.
  */
+/*
 template <typename T>
 std::vector<std::vector<T>> performPCA(const std::vector<std::vector<T>>& data, int n_components) {
     size_t num_samples = data.size();
@@ -64,6 +65,7 @@ std::vector<std::vector<T>> performPCA(const std::vector<std::vector<T>>& data, 
 
     return result;
 }
+*/
 
 /**
  * @brief Plots the results of the K-Means clustering.
