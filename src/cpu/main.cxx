@@ -40,19 +40,14 @@ typedef float REAL;
 /*----------------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
     std::cout << "[K-Means Clustering Using CPU]" << std::endl;
-    
-    std::string inputPath = "../data/raw/test_pad.csv";
-    std::string outputPath = "../data/processed/labels.csv";
-
-    std::cout << " Reading data from " << inputPath << std::endl;
-    std::cout << " Writing labels to " << outputPath << std::endl;
 
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 120);
+    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 5);
     args::ValueFlag<std::string> executionFlag(parser, "execution", "Execution type: sequential or parallel", {'e', "execution"}, "sequential");
     args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
+    args::ValueFlag<std::string> dataFolderFlag(parser, "folder", "The folder where to take the data", {'f', "folder"}, "pad");
 
     // Parse command-line arguments
     try {
@@ -74,21 +69,44 @@ int main(int argc, char* argv[]) {
     int k = args::get(clustersFlag);
     std::string executionType = args::get(executionFlag);
     int max_iters = args::get(maxItersFlag);
-    int D = 2;
+    std::string folder = args::get(dataFolderFlag);
+
+    std::string inputPath = "../data/" + folder + "/data.csv";
+    std::string outputPath = "../data/" + folder + "/labels.csv";
+
+    std::cout << " Reading data from " << inputPath << std::endl;
+    std::cout << " Writing labels to " << outputPath << std::endl;
+
+    int D;
 
     // Load data
     std::vector<Point<REAL>> data;
     try {
-        io::CSVReader<3> in(inputPath);
-        in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
-        REAL x, y;
-        int grey;
-        while (in.read_row(x, y, grey)) {
-            // Since we want to cluster based on the greyscale value, we only keep the points that are grey
-            if (grey == 1) {
-                REAL coords[] = { x, y };
+        if (folder.compare("synthetic") == 0) {
+            D = 3;
+            io::CSVReader<3> in(inputPath);
+            in.read_header(io::ignore_extra_column, "Feature1", "Feature2", "Feature3");
+            REAL x, y, z;
+            while (in.read_row(x, y, z)) {
+                REAL coords[] = { x, y, z };
                 data.emplace_back(coords, D);
             }
+        } else if (folder.compare("pad") == 0) {
+            D = 2;
+            io::CSVReader<3> in(inputPath);
+            in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
+            REAL x, y;
+            int grey;
+            while (in.read_row(x, y, grey)) {
+                // Since we want to cluster based on the greyscale value, we only keep the points that are grey
+                if (grey == 1) {
+                    REAL coords[] = { x, y };
+                    data.emplace_back(coords, D);
+                }
+            }
+        } else {
+            std::cerr << "This folder has no emplementation" << std::endl;
+            return EXIT_FAILURE;
         }
     } catch (const std::exception& e) {
         std::cerr << "Error reading data: " << e.what() << std::endl;

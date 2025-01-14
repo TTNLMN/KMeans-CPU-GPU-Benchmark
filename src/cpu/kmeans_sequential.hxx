@@ -79,10 +79,10 @@ public:
      * @param data The data to assign.
      * @param M Number of data points.
      *
-     * @return std::vector<int> The cluster assignments.
+     * @return int* The cluster assignments.
      */
-    std::vector<int> predict(Point<T>* data, size_t M) override {
-        std::vector<int> assignments(M);
+    int* predict(Point<T>* data, size_t M) override {
+        int* assignments = new int[M];
         for (size_t i = 0; i < M; ++i) {
             assignments[i] = this->closestCentroid(data[i]);
         }

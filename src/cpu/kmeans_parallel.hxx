@@ -78,10 +78,10 @@ public:
      * @param data The data to assign.
      * @param M Number of data points.
      *
-     * @return std::vector<int> The cluster assignments.
+     * @return int* The cluster assignments.
      */
-    std::vector<int> predict(Point<T>* data, size_t M) override {
-        std::vector<int> assignments(M);
+    int* predict(Point<T>* data, size_t M) override {
+        int* assignments = new int[M];
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < M; ++i) {
             assignments[i] = this->closestCentroid(data[i]);
@@ -117,17 +117,14 @@ protected:
         for (int c = 0; c < k; ++c) {
             std::fill(this->centroids[c].data, this->centroids[c].data + D, T(0));
         }
-        // Initialize global counts per cluster
         std::vector<int> counts(k, 0);
 
-        // Get the number of threads
         int num_threads = omp_get_max_threads();
-
+        
         // Allocate per-thread local accumulators
         std::vector<std::vector<T>> thread_centroids_sum(num_threads, std::vector<T>(k * D, T(0)));
         std::vector<std::vector<int>> thread_counts(num_threads, std::vector<int>(k, 0));
 
-        // Parallel loop over data points
         #pragma omp parallel
         {
             int thread_id = omp_get_thread_num();
@@ -146,12 +143,10 @@ protected:
         
         // Combine per-thread accumulators into global centroids and counts
         for (int t = 0; t < num_threads; ++t) {
-            // Aggregate counts
             for (int c = 0; c < k; ++c) {
                 counts[c] += thread_counts[t][c];
             }
 
-            // Aggregate centroid sums
             for (int c = 0; c < k; ++c) {
                 for (int d = 0; d < D; ++d) {
                     this->centroids[c].data[d] += thread_centroids_sum[t][c * D + d];

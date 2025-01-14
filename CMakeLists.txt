@@ -24,7 +24,7 @@ else()
 endif()
 
 # Enable OpenMP
-if(APPLE)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(STATUS "Configuring for macOS.")
     # Path to libomp installed via Homebrew
     set(LIBOMP_INCLUDE_DIR "/opt/homebrew/opt/libomp/include")
@@ -38,7 +38,7 @@ if(APPLE)
     # Optionally, set runtime library path
     set(CMAKE_INSTALL_RPATH "${LIBOMP_LIB_DIR}")
 endif()
-if(LINUX)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux platform.")
     # Find OpenMP package
     find_package(OpenMP REQUIRED)
