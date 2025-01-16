@@ -3,30 +3,37 @@
 #include <cuda_runtime.h>
 
 /**
- * @brief Point class for K-means clustering
+ * @brief Point class representing a point in D-dimensional space.
  * 
- * @tparam T Data type of the coordinates
+ * @tparam T Data type of the coordinates.
+ * @tparam D Number of dimensions.
  */
-template <typename T>
+template <typename T, int D>
 struct Point {
-    T* coords;
-    int dimension;
+    T coords[D];
     int cluster;
 
     __host__ __device__
-    Point() 
-        : coords(nullptr), dimension(0), cluster(-1) 
-    {}
+    Point() : cluster(-1) {
+        #pragma unroll
+        for (int i = 0; i < D; i++) {
+            coords[i] = T(0);
+        }
+    }
 
     __host__ __device__
-    Point(T* arr, int dim, int cl = -1)
-        : coords(arr), dimension(dim), cluster(cl)
-    {}
+    Point(const T (&arr)[D], int cl = -1) : cluster(cl) {
+        #pragma unroll
+        for (int i = 0; i < D; i++) {
+            coords[i] = arr[i];
+        }
+    }
 
     __host__ __device__
-    T distance(const Point<T>& other) const {
+    T distance(const Point<T, D>& other) const {
         T dist = 0;
-        for (int i = 0; i < dimension; i++) {
+        #pragma unroll
+        for (int i = 0; i < D; i++) {
             T diff = coords[i] - other.coords[i];
             dist += diff * diff;
         }

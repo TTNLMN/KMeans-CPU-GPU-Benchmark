@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 120);
     args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
-    args::ValueFlag<std::string> dataFolderFlag(parser, "folder", "The folder where to take the data", {'f', "folder"}, "pad");
 
     // Parse command-line arguments
     try {
@@ -59,49 +58,30 @@ int main(int argc, char* argv[]) {
     // Retrieve argument values
     int k = args::get(clustersFlag);
     int max_iters = args::get(maxItersFlag);
-    std::string folder = args::get(dataFolderFlag);
 
+    std::string folder = "pad";
     std::string inputPath = "../data/" + folder + "/data.csv";
     std::string outputPath = "../data/" + folder + "/labels.csv";
 
     std::cout << " Reading data from " << inputPath << std::endl;
     std::cout << " Writing labels to " << outputPath << std::endl;
 
+    const int D = 2;
+
     // Load data
-    std::vector<Point<REAL>> data;
+    std::vector<Point<REAL, D>> data;
     try {
-        if (folder.compare("pad") == 0) {
-            io::CSVReader<3> in(inputPath);
-            in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
-            REAL x, y;
-            int grey;
-            while (in.read_row(x, y, grey)) {
-                // Since we want to cluster based on the greyscale value, we only keep the points that are grey
-                if (grey == 1) {
-                    REAL* coords = new REAL[2];
-                    coords[0]    = x;
-                    coords[1]    = y;
-
-                    Point<REAL> p(coords, 2);
-                    data.emplace_back(p);
-                }
-            }
-        } else if (folder.compare("synthetic") == 0) {
-            io::CSVReader<3> in(inputPath);
-            in.read_header(io::ignore_extra_column, "Feature1", "Feature2", "Feature3");
-            REAL x, y, z;
-            while (in.read_row(x, y, z)) {
-                REAL* coords = new REAL[3];
-                coords[0]    = x;
-                coords[1]    = y;
-                coords[2]    = z;
-
-                Point<REAL> p(coords, 3);
+        io::CSVReader<3> in(inputPath);
+        in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
+        REAL x, y;
+        int grey;
+        while (in.read_row(x, y, grey)) {
+            // Since we want to cluster based on the greyscale value, we only keep the points that are grey
+            if (grey == 1) {
+                REAL coords[D] = { x, y };
+                Point<REAL, D> p(coords);
                 data.emplace_back(p);
             }
-        } else {
-            std::cerr << "This folder has no emplementation" << std::endl;
-            return EXIT_FAILURE;
         }
     } catch (const std::exception& e) {
         std::cerr << "Error reading data: " << e.what() << std::endl;
@@ -109,10 +89,6 @@ int main(int argc, char* argv[]) {
     }
 
     size_t M = data.size();
-    if (M == 0) {
-        std::cerr << "No data loaded. Exiting." << std::endl;
-        return EXIT_FAILURE;
-    }
 
     // Setup CUDA environnement 
     cudaError_t error;
@@ -147,8 +123,8 @@ int main(int argc, char* argv[]) {
     cudaEventCreate(&start);
     cudaEventRecord(start, NULL);
 
-    KMeans<REAL> kmeans(k, max_iters);
-    kmeans.fit(data.data(), M, data[0].dimension);
+    KMeans<REAL, D> kmeans(k, max_iters);
+    kmeans.fit(data.data(), M);
     
     // stop and destroy timer
     cudaEventCreate(&stop);
