@@ -66,25 +66,26 @@ int main(int argc, char* argv[]) {
     int max_iters = args::get(maxItersFlag);
     std::string folder = args::get(dataFolderFlag);
 
+    // Compose I/O paths
     std::string inputPath = "../data/" + folder + "/data.csv";
     std::string outputPath = "../data/" + folder + "/labels.csv";
 
     std::cout << " Reading data from " << inputPath << std::endl;
     std::cout << " Writing labels to " << outputPath << std::endl;
 
-    // For synthetic data, use 3 dimensions
-    const int D = 2;
-
     // Load data
-    std::vector<Point<REAL, D>> data;
+    std::vector<Point<REAL>> data;
+
     try {
         if (folder.compare("synthetic") == 0) {
             io::CSVReader<3> in(inputPath);
             in.read_header(io::ignore_extra_column, "Feature1", "Feature2", "Feature3");
             REAL x, y, z;
             while (in.read_row(x, y, z)) {
-                REAL coords[] = { x, y };
-                data.emplace_back(coords, D);
+                std::vector<REAL> coords = { x, y, z };
+                Point<REAL> pt;
+                pt.coords = coords;
+                data.push_back(pt);
             }
         } else if (folder.compare("pad") == 0) {
             io::CSVReader<3> in(inputPath);
@@ -94,8 +95,10 @@ int main(int argc, char* argv[]) {
             while (in.read_row(x, y, grey)) {
                 // Since we want to cluster based on the greyscale value, we only keep the points that are grey
                 if (grey == 1) {
-                    REAL coords[] = { x, y };
-                    data.emplace_back(coords, D);
+                    std::vector<REAL> coords = { x, y };
+                    Point<REAL> pt;
+                    pt.coords = coords;
+                    data.push_back(pt);
                 }
             }
         } else {
@@ -108,22 +111,33 @@ int main(int argc, char* argv[]) {
     }
 
     size_t M = data.size();
+    if (M == 0) {
+        std::cerr << "No data loaded. Exiting." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    size_t dimension = data[0].coords.size();
+    std::cout << " Loaded " << M << " data points of dimension " << dimension << "." << std::endl;
 
     // Define KMeans implementation
-    std::unique_ptr<KMeans<REAL, D>> kmeans;
+    std::unique_ptr<KMeans<REAL>> kmeans;
 
     if (executionType == "sequential") {
-        kmeans = std::make_unique<KMeansSequential<REAL, D>>(k, max_iters);
+        kmeans = std::make_unique<KMeansSequential<REAL>>(k, max_iters);
     } else if (executionType == "parallel") {
-        kmeans = std::make_unique<KMeansParallel<REAL, D>>(k, max_iters);
+        kmeans = std::make_unique<KMeansParallel<REAL>>(k, max_iters);
     } else {
-        std::cerr << "Invalid execution type: " << executionType << ". Use 'sequential' or 'parallel'." << std::endl;
+        std::cerr << "Invalid execution type: " << executionType
+                  << ". Use 'sequential' or 'parallel'." << std::endl;
         return EXIT_FAILURE;
     }
 
     auto start = std::chrono::system_clock::now();
 
-    std::cout << " == Executing K-Means with " << k << " clusters using " << executionType << " execution..." << std::endl;
+    std::cout << " == Executing K-Means with " << k 
+              << " clusters using " << executionType 
+              << " execution..." << std::endl;
+
     kmeans->fit(data.data(), M);
 
     auto elapse = std::chrono::system_clock::now() - start;
@@ -136,6 +150,7 @@ int main(int argc, char* argv[]) {
     if (check_out) {
         int* assignments = kmeans->predict(data.data(), M);
         plotResults(outputPath, assignments, M);
+        delete[] assignments;
     }
     
     return EXIT_SUCCESS;

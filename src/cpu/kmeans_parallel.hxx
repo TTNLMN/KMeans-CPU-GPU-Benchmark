@@ -1,86 +1,84 @@
-// -----------------------------------------------------------------------------
-/**
- * * Name:       kmeans_parallel.hxx
- * * Purpose:    Provide a parallel implementation of K-Means Clustering
- * * History:    Your Name, 2024
- */
-// -----------------------------------------------------------------------------
-
 #pragma once
 
 #include "kmeans.hxx"
 #include <omp.h>
+#include <cstdlib>
 
 /**
- * @brief Parallel implementation of K-Means clustering using multi-threading.
+ * @brief Parallel implementation of K-Means clustering using OpenMP.
  *
- * @tparam T The data type of the data points (e.g., double, float).
+ * @tparam T Numeric type of the data points (e.g. float, double).
  */
-template <typename T, int D>
-class KMeansParallel : public KMeans<T, D> {
+template <typename T>
+class KMeansParallel : public KMeans<T> {
 public:
+    using Base = KMeans<T>;
+
     /**
-     * @brief Constructor to initialize the number of clusters and maximum iterations.
+     * @brief Constructor to initialize the number of clusters (k) 
+     *        and maximum iterations (max_iters).
      *
      * @param k Number of clusters.
      * @param max_iters Maximum number of iterations.
-     * @param D Dimensionality of each data point.
      */
-    KMeansParallel(int k, int max_iters) : KMeans<T, D>(k, max_iters) {}
+    KMeansParallel(int k, int max_iters)
+        : Base(k, max_iters)
+    {}
 
     /**
      * @brief Fits the K-Means model to the data in parallel.
      *
-     * @param data The data to cluster.
-     * @param M Number of data points.
+     * @param data Pointer to an array of Points.
+     * @param M    Number of data points.
      */
-    void fit(Point<T, D>* data, size_t M) override {
+    void fit(Point<T>* data, size_t M) override {
+        // 1. Initialize centroids (random picks)
         this->initializeCentroids(data, M);
-        
-        Point<T, D>* previous_centroids = new Point<T, D>[this->k];
-        for (int c = 0; c < this->k; ++c) {
-            previous_centroids[c] = this->centroids[c];
+
+        // 2. Copy the initial centroids for comparison in each iteration
+        std::vector<Point<T>> previous_centroids(this->k_);
+        for (int c = 0; c < this->k_; ++c) {
+            previous_centroids[c] = this->centroids_[c];
         }
 
-        for (int iter = 0; iter < this->max_iters; ++iter) {
-            // Step 1: Assign each point to the closest centroid in parallel
+        // 3. Iterative refinement
+        for (int iter = 0; iter < this->max_iters_; ++iter) {
+            // Step 1: Assign each point to the closest centroid (in parallel)
             assignClusters(data, M);
 
-            // Step 2: Update centroids based on the assignments in parallel
+            // Step 2: Update centroids (in parallel)
             updateCentroids(data, M);
 
+            // Step 3: Check for convergence
             bool converged = true;
-            for (int c = 0; c < this->k; ++c) {
-                T change = this->centroids[c].distance(previous_centroids[c]);
-                if (change > 1e-6) {
+            for (int c = 0; c < this->k_; ++c) {
+                T change = this->centroids_[c].distance(previous_centroids[c]);
+                if (change > static_cast<T>(1e-6)) {
                     converged = false;
                     break;
                 }
             }
             if (converged) {
-                std::cout << "\t Converged after " << iter + 1 << " iterations." << std::endl;
+                std::cout << "\tConverged after " << iter + 1 << " iterations." << std::endl;
                 break;
             }
 
             // Update previous centroids
-            for (int c = 0; c < this->k; ++c) {
-                previous_centroids[c] = this->centroids[c];
+            for (int c = 0; c < this->k_; ++c) {
+                previous_centroids[c] = this->centroids_[c];
             }
         }
-
-        // Cleanup
-        delete[] previous_centroids;
     }
 
     /**
-     * @brief Predicts the cluster assignments for the data sequentially.
+     * @brief Predicts the cluster assignments for the data in parallel.
      *
-     * @param data The data to assign.
-     * @param M Number of data points.
-     *
-     * @return int* The cluster assignments.
+     * @param data Pointer to an array of Points.
+     * @param M    Number of data points.
+     * @return int* Dynamically allocated array of cluster assignments
+     *              (caller is responsible for freeing this array).
      */
-    int* predict(Point<T, D>* data, size_t M) override {
+    int* predict(Point<T>* data, size_t M) override {
         int* assignments = new int[M];
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < M; ++i) {
@@ -91,12 +89,12 @@ public:
 
 protected:
     /**
-     * @brief Assigns each data point to the closest centroid.
+     * @brief Assigns each data point to the closest centroid in parallel.
      *
-     * @param data The data to cluster.
-     * @param M Number of data points.
+     * @param data Pointer to an array of Points.
+     * @param M    Number of data points.
      */
-    void assignClusters(Point<T, D>* data, size_t M) {
+    void assignClusters(Point<T>* data, size_t M) {
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < M; ++i) {
             data[i].cluster = this->closestCentroid(data[i]);
@@ -104,65 +102,104 @@ protected:
     }
 
     /**
-     * @brief Updates the centroids based on current cluster assignments.
+     * @brief Updates the centroids based on current cluster assignments, in parallel.
      *
-     * @param data The data to cluster.
-     * @param M Number of data points.
+     * @param data Pointer to an array of Points.
+     * @param M    Number of data points.
      */
-    void updateCentroids(Point<T, D>* data, size_t M) {
-        int k = this->k;
+    void updateCentroids(Point<T>* data, size_t M) {
+        int k = this->k_;
+        if (k == 0) return;
 
-        // Reset centroids
+        // For safety, check dimension from the first centroid
+        // (Assumes all centroids have the same dimension).
+        size_t dimension = this->centroids_[0].coords.size();
+
+        // 1. Reset global centroids to 0
         for (int c = 0; c < k; ++c) {
-            std::fill(this->centroids[c].data, this->centroids[c].data + D, T(0));
+            std::fill(this->centroids_[c].coords.begin(), 
+                      this->centroids_[c].coords.end(), T(0));
         }
-        std::vector<int> counts(k, 0);
 
-        int num_threads = omp_get_max_threads();
-        
-        // Allocate per-thread local accumulators
-        std::vector<std::vector<T>> thread_centroids_sum(num_threads, std::vector<T>(k * D, T(0)));
-        std::vector<std::vector<int>> thread_counts(num_threads, std::vector<int>(k, 0));
+        // 2. We'll need to track how many points go into each cluster
+        //    but we'll do this in parallel using thread local accumulators.
+        std::vector<int> global_counts(k, 0);
 
+        int num_threads = 1;
+        #ifdef _OPENMP
+        num_threads = omp_get_max_threads();
+        #endif
+
+        // 3. Per thread local accumulators for sums and counts
+        //    Flatten each thread’s centroid accumulators into a single vector:
+        //    thread_centroids_sum[thread_id] has size k * dimension
+        std::vector<std::vector<T>> thread_centroids_sum(
+            num_threads, std::vector<T>(k * dimension, T(0))
+        );
+        std::vector<std::vector<int>> thread_counts(
+            num_threads, std::vector<int>(k, 0)
+        );
+
+        // 4. Parallel accumulation
         #pragma omp parallel
         {
-            int thread_id = omp_get_thread_num();
+            int thread_id = 0;
+            #ifdef _OPENMP
+            thread_id = omp_get_thread_num();
+            #endif
+
             T* local_centroids = thread_centroids_sum[thread_id].data();
-            int* local_counts = thread_counts[thread_id].data();
+            int* local_counts   = thread_counts[thread_id].data();
 
             #pragma omp for nowait
             for (size_t i = 0; i < M; ++i) {
-                int cluster = data[i].cluster;
-                local_counts[cluster]++;
-                for (int d = 0; d < D; ++d) {
-                    local_centroids[cluster * D + d] += data[i].data[d];
+                int cluster_idx = data[i].cluster;
+                local_counts[cluster_idx]++;
+
+                // Add point[i]'s coordinates to the local centroid accumulator
+                const auto& pointCoords = data[i].coords;
+                if (pointCoords.size() != dimension) {
+                    throw std::runtime_error(
+                        "Dimension mismatch in updateCentroids()"
+                    );
+                }
+
+                for (size_t d = 0; d < dimension; ++d) {
+                    local_centroids[cluster_idx * dimension + d] += pointCoords[d];
                 }
             }
         }
-        
-        // Combine per-thread accumulators into global centroids and counts
+
+        // 5. Combine per-thread accumulators into global centroids & counts
         for (int t = 0; t < num_threads; ++t) {
+            // Combine counts
             for (int c = 0; c < k; ++c) {
-                counts[c] += thread_counts[t][c];
+                global_counts[c] += thread_counts[t][c];
             }
 
+            // Combine sums
+            const auto& thread_sum = thread_centroids_sum[t];
             for (int c = 0; c < k; ++c) {
-                for (int d = 0; d < D; ++d) {
-                    this->centroids[c].data[d] += thread_centroids_sum[t][c * D + d];
+                for (size_t d = 0; d < dimension; ++d) {
+                    this->centroids_[c].coords[d] += 
+                        thread_sum[c * dimension + d];
                 }
             }
         }
 
-        // Divide by counts to get the mean
+        // 6. Compute the mean for each centroid
         for (int c = 0; c < k; ++c) {
-            if (counts[c] > 0) {
-                for (int d = 0; d < D; ++d) {
-                    this->centroids[c].data[d] /= static_cast<T>(counts[c]);
+            if (global_counts[c] > 0) {
+                for (size_t d = 0; d < dimension; ++d) {
+                    this->centroids_[c].coords[d] /= 
+                        static_cast<T>(global_counts[c]);
                 }
             } else {
-                // If a cluster has no points, reinitialize it randomly
-                std::cout << "Cluster " << c << " has no points. Reinitializing centroid." << std::endl;
-                this->centroids[c] = data[std::rand() % M];
+                // If a cluster has no points, re-initialize it randomly
+                std::cout << "Cluster " << c 
+                          << " has no points. Reinitializing centroid."
+                          << std::endl;
+                this->centroids_[c] = data[std::rand() % M];
             }
         }
     }

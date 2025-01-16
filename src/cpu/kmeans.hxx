@@ -1,11 +1,3 @@
-// -----------------------------------------------------------------------------
-/**
- * * Name:       kmeans.hxx
- * * Purpose:    K-Means Clustering Implementation
- * * History:    Titouan Le Moan & Max Bedel, 2024
- */
-// -----------------------------------------------------------------------------
-
 #pragma once
 
 #include <vector>
@@ -16,75 +8,108 @@
 #include <memory>
 #include <iostream>
 #include <numeric>
-
 #include "point.hxx"
 
-template <typename T, int D>
+/**
+ * @brief Base class for K-Means clustering with dynamic dimension.
+ * 
+ * @tparam T Numeric type (float, double, etc.).
+ */
+template <typename T>
 class KMeans {
 public:
-    KMeans(int k, int max_iters) : k(k), max_iters(max_iters) {
-        centroids = new Point<T, D>[k];
-        for (int i = 0; i < k; ++i) {
-            centroids[i] = Point<T, D>();
-        }
-    }
-
-    virtual ~KMeans() {
-        delete[] centroids;
+    /**
+     * @brief Constructor for the KMeans base class.
+     * @param k Number of clusters to create.
+     * @param max_iters Maximum number of iterations allowed.
+     */
+    KMeans(int k, int max_iters)
+        : k_(k), max_iters_(max_iters) {
+        // Reserve space for centroids to avoid repeated allocations.
+        centroids_.reserve(k_);
     }
 
     /**
-     * @brief Fits the K-Means model to the data.
-     *
-     * @param data The data to cluster.
-     * @param M The number of data points.
+     * @brief Virtual destructor.
      */
-    virtual void fit(Point<T, D>* data, size_t M) = 0;
+    virtual ~KMeans() = default;
 
     /**
-     * @brief Predicts the cluster assignments for the data.
-     *
-     * @param data The data to assign.
-     * @param M The number of data points.
-     *
-     * @return std::vector<int> The cluster assignments.
+     * @brief Pure virtual function to fit (train) the model on the data.
+     * 
+     * @param data Pointer to an array of Points (dynamic dimension).
+     * @param M    Number of data points.
      */
-    virtual int* predict(Point<T, D>* data, size_t M) = 0;
+    virtual void fit(Point<T>* data, size_t M) = 0;
+
+    /**
+     * @brief Pure virtual function to predict cluster assignments of new data.
+     * 
+     * @param data Pointer to an array of Points (dynamic dimension).
+     * @param M    Number of data points.
+     * @return int* Array of cluster assignments (caller must handle ownership).
+     */
+    virtual int* predict(Point<T>* data, size_t M) = 0;
 
 protected:
-    int k;
-    int max_iters;
-    Point<T, D>* centroids;
+    /**
+     * @brief Number of clusters.
+     */
+    int k_;
 
     /**
-     * @brief Initializes centroids by randomly selecting k data points.
+     * @brief Maximum number of iterations allowed.
+     */
+    int max_iters_;
+
+    /**
+     * @brief Vector of centroid points, each with a dynamic dimension.
+     */
+    std::vector<Point<T>> centroids_;
+
+    /**
+     * @brief Randomly initializes centroids by selecting k distinct points.
      *
      * @param data The data to initialize from.
-     * @param M The number of data points.
+     * @param M    The number of data points.
      */
-    void initializeCentroids(Point<T, D>* data, size_t M) {
+    void initializeCentroids(Point<T>* data, size_t M) {
+        // Always clear in case of repeated runs
+        centroids_.clear();
+        centroids_.reserve(k_);
+
+        // Create a list of indices [0..M-1]
         std::vector<int> indices(M);
         std::iota(indices.begin(), indices.end(), 0);
-        std::shuffle(indices.begin(), indices.end(), std::mt19937{std::random_device{}()});
 
-        for (int i = 0; i < k; ++i) {
-            centroids[i] = data[indices[i]];
+        // Shuffle using a random device
+        std::shuffle(indices.begin(), indices.end(),
+                     std::mt19937{std::random_device{}()});
+
+        // Pick the first k distinct points
+        for (int i = 0; i < k_; ++i) {
+            centroids_.push_back(data[indices[i]]);
         }
     }
 
     /**
      * @brief Finds the index of the closest centroid to a given point.
      *
-     * @param point The data point.
-     * @return int The index of the closest centroid.
+     * @param point A data point.
+     * @return int  The index of the closest centroid in @c centroids_.
      */
-    int closestCentroid(const Point<T, D>& point) {
+    int closestCentroid(const Point<T>& point) const {
+        if (centroids_.empty()) {
+            // Technically should never happen if we call initializeCentroids first.
+            throw std::runtime_error("Centroids have not been initialized.");
+        }
+
         int closest_cluster = 0;
-        T min_distance = point.distance(centroids[0]);
-        for (int c = 1; c < k; ++c) {
-            T distance = point.distance(centroids[c]);
-            if (distance < min_distance) {
-                min_distance = distance;
+        T min_distance = point.distance(centroids_[0]);
+        for (int c = 1; c < k_; ++c) {
+            T distance_c = point.distance(centroids_[c]);
+            if (distance_c < min_distance) {
+                min_distance = distance_c;
                 closest_cluster = c;
             }
         }

@@ -1,0 +1,2 @@
+- M multiple de 32 (threads dans un warp) -> le nombre de données
+- Utilisation de la shared mem pour recalculer les centroids et eviter les atomic add (k étant souvent faible, beaucoup de points tombent sur la meme case et donc beaucoup de threads feront des atomicAdd vers les mêmes cases mémoire.)
