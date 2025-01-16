@@ -59,8 +59,10 @@ public:
             cudaMemset(sums_d,   0, k * D * sizeof(T));
             cudaMemset(counts_d, 0, k * sizeof(int));
 
+            size_t sharedMemSize = k * D * sizeof(T) + k * sizeof(int);
+
             // (c) Update centroids
-            update_centroids<T, D><<<blocksPerGrid, threadsPerBlock>>>(data_d, sums_d, counts_d, k, M);
+            update_centroids_reduction<T, D><<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(data_d, sums_d, counts_d, k, M);
             cudaDeviceSynchronize();
 
             // (d) Compute new centroids

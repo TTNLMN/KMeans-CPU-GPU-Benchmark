@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     // Define parser
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 120);
+    args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 10);
     args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
 
     // Parse command-line arguments
@@ -59,29 +59,26 @@ int main(int argc, char* argv[]) {
     int k = args::get(clustersFlag);
     int max_iters = args::get(maxItersFlag);
 
-    std::string folder = "pad";
+    std::string folder = "synthetic";
     std::string inputPath = "../data/" + folder + "/data.csv";
     std::string outputPath = "../data/" + folder + "/labels.csv";
 
     std::cout << " Reading data from " << inputPath << std::endl;
     std::cout << " Writing labels to " << outputPath << std::endl;
 
-    const int D = 2;
+    const int D = 3;
 
     // Load data
     std::vector<Point<REAL, D>> data;
     try {
         io::CSVReader<3> in(inputPath);
-        in.read_header(io::ignore_extra_column, "X", "Y", "Grey");
-        REAL x, y;
-        int grey;
-        while (in.read_row(x, y, grey)) {
+        in.read_header(io::ignore_extra_column, "Feature1", "Feature2", "Feature3");
+        REAL x, y, z;
+        while (in.read_row(x, y, z)) {
             // Since we want to cluster based on the greyscale value, we only keep the points that are grey
-            if (grey == 1) {
-                REAL coords[D] = { x, y };
-                Point<REAL, D> p(coords);
-                data.emplace_back(p);
-            }
+            REAL coords[D] = { x, y, z };
+            Point<REAL, D> p(coords);
+            data.emplace_back(p);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error reading data: " << e.what() << std::endl;
