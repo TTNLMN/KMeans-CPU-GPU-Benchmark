@@ -31,16 +31,14 @@ public:
      * @param M    Number of data points.
      */
     void fit(Point<T>* data, size_t M) override {
-        // 1. Initialize centroids
         this->initializeCentroids(data, M);
 
-        // 2. Prepare a container to track previous centroids
+        // Prepare a container to track previous centroids
         std::vector<Point<T>> previous_centroids(this->k_);
         for (int c = 0; c < this->k_; ++c) {
             previous_centroids[c] = this->centroids_[c];
         }
 
-        // 3. Iterate up to max_iters times
         for (int iter = 0; iter < this->max_iters_; ++iter) {
             // Step 1: Assign each point to the closest centroid
             assignClusters(data, M);
@@ -62,7 +60,6 @@ public:
                 break;
             }
 
-            // Update previous_centroids for the next iteration
             for (int c = 0; c < this->k_; ++c) {
                 previous_centroids[c] = this->centroids_[c];
             }
@@ -107,7 +104,6 @@ protected:
     void updateCentroids(Point<T>* data, size_t M) {
         // Reset each centroid to 0
         for (int c = 0; c < this->k_; ++c) {
-            // Clear existing centroid data
             std::fill(this->centroids_[c].coords.begin(), 
                       this->centroids_[c].coords.end(), T(0));
         }

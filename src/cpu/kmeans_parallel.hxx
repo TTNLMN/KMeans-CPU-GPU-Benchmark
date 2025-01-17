@@ -32,16 +32,14 @@ public:
      * @param M    Number of data points.
      */
     void fit(Point<T>* data, size_t M) override {
-        // 1. Initialize centroids (random picks)
         this->initializeCentroids(data, M);
 
-        // 2. Copy the initial centroids for comparison in each iteration
+        // Prepare a container to track previous centroids
         std::vector<Point<T>> previous_centroids(this->k_);
         for (int c = 0; c < this->k_; ++c) {
             previous_centroids[c] = this->centroids_[c];
         }
 
-        // 3. Iterative refinement
         for (int iter = 0; iter < this->max_iters_; ++iter) {
             // Step 1: Assign each point to the closest centroid (in parallel)
             assignClusters(data, M);
@@ -63,7 +61,6 @@ public:
                 break;
             }
 
-            // Update previous centroids
             for (int c = 0; c < this->k_; ++c) {
                 previous_centroids[c] = this->centroids_[c];
             }
@@ -112,17 +109,16 @@ protected:
         if (k == 0) return;
 
         // For safety, check dimension from the first centroid
-        // (Assumes all centroids have the same dimension).
         size_t dimension = this->centroids_[0].coords.size();
 
-        // 1. Reset global centroids to 0
+        // Reset global centroids to 0
         for (int c = 0; c < k; ++c) {
             std::fill(this->centroids_[c].coords.begin(), 
                       this->centroids_[c].coords.end(), T(0));
         }
 
-        // 2. We'll need to track how many points go into each cluster
-        //    but we'll do this in parallel using thread local accumulators.
+        // We'll need to track how many points go into each cluster
+        // So we'll do this in parallel using thread local accumulators.
         std::vector<int> global_counts(k, 0);
 
         int num_threads = 1;
@@ -130,9 +126,9 @@ protected:
         num_threads = omp_get_max_threads();
         #endif
 
-        // 3. Per thread local accumulators for sums and counts
-        //    Flatten each thread’s centroid accumulators into a single vector:
-        //    thread_centroids_sum[thread_id] has size k * dimension
+        // Per thread local accumulators for sums and counts
+        // Flatten each thread’s centroid accumulators into a single vector:
+        // thread_centroids_sum[thread_id] has size k * dimension
         std::vector<std::vector<T>> thread_centroids_sum(
             num_threads, std::vector<T>(k * dimension, T(0))
         );
@@ -140,7 +136,7 @@ protected:
             num_threads, std::vector<int>(k, 0)
         );
 
-        // 4. Parallel accumulation
+        // Parallel accumulation
         #pragma omp parallel
         {
             int thread_id = 0;
@@ -170,7 +166,7 @@ protected:
             }
         }
 
-        // 5. Combine per-thread accumulators into global centroids & counts
+        // Combine per-thread accumulators into global centroids & counts
         for (int t = 0; t < num_threads; ++t) {
             // Combine counts
             for (int c = 0; c < k; ++c) {
@@ -187,7 +183,7 @@ protected:
             }
         }
 
-        // 6. Compute the mean for each centroid
+        // Compute the mean for each centroid
         for (int c = 0; c < k; ++c) {
             if (global_counts[c] > 0) {
                 for (size_t d = 0; d < dimension; ++d) {

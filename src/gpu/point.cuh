@@ -10,9 +10,19 @@
  */
 template <typename T, int D>
 struct Point {
+    /**
+     * @brief Coordinates of the point.
+     * 
+     * @note In the case of CUDA, we can't use a dynamic array here, so we use a fixed-size array.
+     */
     T coords[D];
+
+    // Cluster index (default: -1 indicates “unassigned”)
     int cluster;
 
+    /**
+     * @brief Default constructor.
+     */
     __host__ __device__
     Point() : cluster(-1) {
         #pragma unroll
@@ -21,6 +31,12 @@ struct Point {
         }
     }
 
+    /**
+     * @brief Constructor with coordinates.
+     * 
+     * @param arr Array of coordinates.
+     * @param cl Cluster index.
+     */
     __host__ __device__
     Point(const T (&arr)[D], int cl = -1) : cluster(cl) {
         #pragma unroll
@@ -29,6 +45,12 @@ struct Point {
         }
     }
 
+    /**
+     * @brief Computes the Euclidean distance between this Point and another.
+     *
+     * @param other Another Point.
+     * @return T    The Euclidean distance.
+     */
     __host__ __device__
     T distance(const Point<T, D>& other) const {
         T dist = 0;

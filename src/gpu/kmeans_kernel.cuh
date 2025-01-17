@@ -3,9 +3,18 @@
 #include <cuda_runtime.h>
 #include "point.cuh"
 
-// ------------------------------------------------------------------
-// Closest centroid device function
-// ------------------------------------------------------------------
+/**
+ * @brief Computes the index of the closest centroid to a point.
+ * 
+ * @tparam T Data type of the coordinates.
+ * @tparam D Number of dimensions.
+ * 
+ * @param point     The point.
+ * @param centroids Array of centroids.
+ * @param k         Number of centroids.
+ * 
+ * @return int      Index of the closest centroid.
+ */
 template <typename T, int D>
 __device__ int closest_centroid(const Point<T, D>& point, 
                                 const Point<T, D>* centroids, 
@@ -23,9 +32,17 @@ __device__ int closest_centroid(const Point<T, D>& point,
     return closest_cluster;
 }
 
-// ------------------------------------------------------------------
-// 1) assign_clusters kernel
-// ------------------------------------------------------------------
+/**
+ * @brief Assigns each point to the closest centroid.
+ * 
+ * @tparam T Data type of the coordinates.
+ * @tparam D Number of dimensions.
+ * 
+ * @param data_d     Device pointer to the data.
+ * @param centroids_d Device pointer to the centroids.
+ * @param k          Number of centroids.
+ * @param M          Number of data points.
+ */
 template <typename T, int D>
 __global__ void assign_clusters(Point<T, D>* data_d, 
                                 const Point<T, D>* centroids_d,
@@ -38,30 +55,69 @@ __global__ void assign_clusters(Point<T, D>* data_d,
     }
 }
 
-// ------------------------------------------------------------------
-// 2) update_centroids kernel
-// ------------------------------------------------------------------
+/**
+ * @brief Updates the centroids using shared memory for reduction.
+ * 
+ * @tparam T Data type of the coordinates.
+ * @tparam D Number of dimensions.
+ * 
+ * @param data_d   Device pointer to the data.
+ * @param sums_d   Device pointer to the sums.
+ * @param counts_d Device pointer to the counts.
+ * @param k        Number of centroids.
+ * @param M        Number of data points.
+ */
 template <typename T, int D>
 __global__ void update_centroids(Point<T, D>* data_d, 
-                                 T* sums_d, 
-                                 int* counts_d, 
-                                 int k, 
-                                 size_t M)
+                                           T* sums_d, 
+                                           int* counts_d, 
+                                           int k, 
+                                           size_t M)
 {
+    extern __shared__ char s_buf[];
+    T* s_sums = (T*)s_buf;
+    int* s_counts = (int*)&s_sums[k * D];
+
+    for (int idx = threadIdx.x; idx < k*D; idx += blockDim.x) {
+        s_sums[idx] = 0;
+    }
+    for (int idx = threadIdx.x; idx < k; idx += blockDim.x) {
+        s_counts[idx] = 0;
+    }
+    __syncthreads();
+
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < M) {
-        int cluster = data_d[i].cluster;
-        // Accumulate coords in sums_d
+        Point<T, D> point = data_d[i];
+        int cluster = point.cluster;
         for (int d = 0; d < D; ++d) {
-            atomicAdd(&sums_d[cluster * D + d], data_d[i].coords[d]);
+            atomicAdd(&s_sums[cluster * D + d], point.coords[d]);
         }
-        atomicAdd(&counts_d[cluster], 1);
+        atomicAdd(&s_counts[cluster], 1);
+    }
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        for (int c = 0; c < k; c++) {
+            for (int d = 0; d < D; d++) {
+                atomicAdd(&sums_d[c * D + d], s_sums[c * D + d]);
+            }
+            atomicAdd(&counts_d[c], s_counts[c]);
+        }
     }
 }
 
-// ------------------------------------------------------------------
-// 3) compute_new_centroids kernel
-// ------------------------------------------------------------------
+/**
+ * @brief Computes the new centroids.
+ * 
+ * @tparam T Data type of the coordinates.
+ * @tparam D Number of dimensions.
+ * 
+ * @param centroids_d Device pointer to the centroids.
+ * @param sums_d      Device pointer to the sums.
+ * @param counts_d    Device pointer to the counts.
+ * @param k           Number of centroids.
+ */
 template <typename T, int D>
 __global__ void compute_new_centroids(Point<T, D>* centroids_d, 
                                       T* sums_d, 
@@ -72,45 +128,6 @@ __global__ void compute_new_centroids(Point<T, D>* centroids_d,
     if (c < k && counts_d[c] > 0) {
         for (int d = 0; d < D; ++d) {
             centroids_d[c].coords[d] = sums_d[c * D + d] / counts_d[c];
-        }
-    }
-}
-
-template <typename T, int D>
-__global__ void update_centroids_reduction(Point<T, D>* data_d, 
-                                           T* sums_d, 
-                                           int* counts_d, 
-                                           int k, 
-                                           size_t M)
-{
-    extern __shared__ char s_buf[];
-    T* s_sums = (T*)s_buf;
-    int* s_counts = (int*)&s_sums[k * D];
-
-    for(int idx = threadIdx.x; idx < k*D; idx += blockDim.x){
-        s_sums[idx] = 0;
-    }
-    for(int idx = threadIdx.x; idx < k; idx += blockDim.x){
-        s_counts[idx] = 0;
-    }
-    __syncthreads();
-
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < M) {
-        int cluster = data_d[i].cluster;
-        for (int d = 0; d < D; ++d) {
-            atomicAdd(&s_sums[cluster * D + d], data_d[i].coords[d]);
-        }
-        atomicAdd(&s_counts[cluster], 1);
-    }
-    __syncthreads();
-
-    if(threadIdx.x == 0) {
-        for(int c = 0; c < k; c++){
-            for(int d = 0; d < D; d++){
-                atomicAdd(&sums_d[c * D + d], s_sums[c * D + d]);
-            }
-            atomicAdd(&counts_d[c], s_counts[c]);
         }
     }
 }

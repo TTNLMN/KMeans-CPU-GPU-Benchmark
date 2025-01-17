@@ -11,7 +11,7 @@
 #include "point.hxx"
 
 /**
- * @brief Base class for K-Means clustering with dynamic dimension.
+ * @brief Base class for K-Means clustering.
  * 
  * @tparam T Numeric type (float, double, etc.).
  */
@@ -20,6 +20,7 @@ class KMeans {
 public:
     /**
      * @brief Constructor for the KMeans base class.
+     * 
      * @param k Number of clusters to create.
      * @param max_iters Maximum number of iterations allowed.
      */
@@ -73,22 +74,37 @@ protected:
      * @param data The data to initialize from.
      * @param M    The number of data points.
      */
-    void initializeCentroids(Point<T>* data, size_t M) {
-        // Always clear in case of repeated runs
+    void initializeCentroidsRandomly(Point<T>* data, size_t M) {
         centroids_.clear();
         centroids_.reserve(k_);
 
-        // Create a list of indices [0..M-1]
         std::vector<int> indices(M);
         std::iota(indices.begin(), indices.end(), 0);
 
-        // Shuffle using a random device
         std::shuffle(indices.begin(), indices.end(),
                      std::mt19937{std::random_device{}()});
 
-        // Pick the first k distinct points
         for (int i = 0; i < k_; ++i) {
             centroids_.push_back(data[indices[i]]);
+        }
+    }
+
+    /**
+     * @brief Deterministically initializes centroids by selecting k points with a fixed stride.
+     *
+     * @param data The data to initialize from.
+     * @param M    The number of data points.
+     */
+    void initializeCentroids(Point<T>* data, size_t M) {
+        centroids_.clear();
+        centroids_.reserve(k_);
+
+        // Compute stride to evenly sample data points
+        size_t stride = M / k_;
+
+        for (size_t i = 0; i < k_; ++i) {
+            size_t index = i * stride;
+            centroids_.push_back(data[index]);
         }
     }
 
