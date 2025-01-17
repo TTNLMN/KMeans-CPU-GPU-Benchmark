@@ -112,7 +112,7 @@ These pseudocode snippets demonstrate how the GPU implementation utilizes shared
 | 1024             | 22                      | 2                     | 5                     | 4.4x              |
 | 32768            | 479                     | 132                   | 8                     | 59.88x            |
 | 1048576          | 125163                  | 34260                 | 1325                  | 94.44x            |
-| 33554432         | Still computing..       | Still computing..     | 35077                 | infinite          |
+| 33554432         | Still computing..       | 1145823               | 35077                 | infinite          |
 
 Dataset used: 3-dimensional data with 15 clusters.
 
@@ -136,6 +136,50 @@ This exercise underscored key lessons:
 - CUDA programming demands careful attention to memory management and thread synchronization.
 
 While the GPU implementation excelled in speed, further optimization in memory coalescing and load balancing could unlock additional performance gains. Overall, the project provided valuable insights into high-performance computing and the practical application of CUDA in accelerating machine learning workloads.
+
+## How to Use the Code
+
+### Step 1: Generate a Dataset
+
+- Use the provided script to create synthetic datasets.
+  ```
+  cd data
+  python generate_dataset.py
+  ```
+
+### Step 2: Compile the Code
+
+- Compile the C++ and CUDA implementations using the provided `Makefile`.
+  ```
+  mkdir build && cd build
+  cmake ..
+  make all
+  ```
+
+### Step 3: Run the Algorithms
+
+- Run the sequential CPU implementation:
+  ```
+  ./src/cpu/kmeans_cpu --folder synthetic --clusters 15
+  ```
+
+- Run the parallel CPU implementation with OpenMP:
+  ```
+  ./src/cpu/kmeans_cpu --folder synthetic --clusters 15 --execution parallel
+  ```
+
+- Run the GPU implementation:
+  ```
+  ./src/gpu/kmeans_gpu --clusters 15 # There is no dynamic dataset in this case since we have to know D at compile time.
+  ```
+
+### Step 4: Plot the Results
+
+- Use the provided Python script to visualize the clustering results:
+  ```
+  cd data/synthetic
+  python plot_results.py
+  ```
 
 ## Sources
 
