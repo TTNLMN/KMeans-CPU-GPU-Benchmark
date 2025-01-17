@@ -28,7 +28,7 @@ public:
     __host__ KMeans(int k, int max_iters)
         : k(k), max_iters(max_iters)
     {
-        centroids_ = new Point<T, D>[k];
+        centroids = new Point<T, D>[k];
     }
 
     /**

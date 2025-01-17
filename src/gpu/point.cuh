@@ -9,7 +9,7 @@
  * @tparam D Number of dimensions.
  */
 template <typename T, int D>
-struct Point {
+struct __align__(4 * sizeof(T)) Point {
     /**
      * @brief Coordinates of the point.
      * 

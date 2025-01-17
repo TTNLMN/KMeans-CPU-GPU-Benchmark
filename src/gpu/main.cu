@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     args::ArgumentParser parser("K-Means Clustering Application", "Clusters data using K-Means algorithm.");
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::ValueFlag<int> clustersFlag(parser, "clusters", "Number of clusters (k)", {'k', "clusters"}, 15);
-    args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 100);
+    args::ValueFlag<int> maxItersFlag(parser, "max_iters", "Maximum number of iterations", {'m', "max_iters"}, 200);
 
     // Parse command-line arguments
     try {
@@ -86,6 +86,12 @@ int main(int argc, char* argv[]) {
     }
 
     size_t M = data.size();
+    if (M == 0) {
+        std::cerr << "No data loaded. Exiting." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::cout << " Loaded " << M << " data points of dimension " << D << "." << std::endl;
 
     // Setup CUDA environnement 
     cudaError_t error;
@@ -107,8 +113,6 @@ int main(int argc, char* argv[]) {
 
     if (error != cudaSuccess) {
         printf("cudaGetDeviceProperties returned error code %d, line(%d)\n", error, __LINE__);
-    } else {
-        printf("GPU Device %d: \"%s\" with compute capability %d.%d\n\n", devID, deviceProp.name, deviceProp.major, deviceProp.minor);
     }
 
     // utilities
@@ -119,6 +123,8 @@ int main(int argc, char* argv[]) {
     // start timer
     cudaEventCreate(&start);
     cudaEventRecord(start, NULL);
+
+    std::cout << " == Executing K-Means with " << k << " clusters using GPU" << std::endl;
 
     KMeans<REAL, D> kmeans(k, max_iters);
     kmeans.fit(data.data(), M);
